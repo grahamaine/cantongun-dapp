@@ -1,0 +1,52 @@
+-- | Selective disclosure & confidential audit trail.
+--
+-- CantonGun is NOT "everything is dark". It enables *control*: an institution can
+-- disclose a trade or loan to an auditor, partner, or regulator — but never to a
+-- competitor. Each disclosure is an explicit, signed on-ledger act, producing a
+-- cryptographically verifiable record without broadcasting the underlying data.
+module CantonGun.Audit where
+
+-- | A private, signed audit record. The signatory is the disclosing party; the
+-- regulator/auditor is the only observer. The `dataCommitment` is a hash of the
+-- full off-ledger detail, so the record proves *what happened* and can be reconciled
+-- against the real data on demand, without that data living on the shared ledger.
+template AuditRecord
+  with
+    discloser      : Party
+    auditor        : Party
+    subject        : Text   -- ^ e.g. "OTC trade", "InvoiceLoan"
+    reference      : Text   -- ^ correlation id of the underlying contract
+    dataCommitment : Text   -- ^ hash / ZK proof reference of full detail
+    disclosedAt    : Time
+  where
+    signatory discloser
+    observer auditor
+    ensure dataCommitment /= ""
+
+    -- | Auditor acknowledges receipt; useful for regulatory sign-off trails.
+    nonconsuming choice Acknowledge : ()
+      controller auditor
+      do pure ()
+
+-- | A standing request from a regulator to receive disclosures of a given subject.
+-- The discloser chooses to honour it, keeping the institution in control of *what*
+-- and *when* it reveals.
+template DisclosureRequest
+  with
+    auditor   : Party
+    discloser : Party
+    subject   : Text
+  where
+    signatory auditor
+    observer discloser
+
+    choice Fulfil : ContractId AuditRecord
+      with
+        reference      : Text
+        dataCommitment : Text
+        disclosedAt    : Time
+      controller discloser
+      do
+        create AuditRecord with
+          discloser; auditor; subject
+          reference; dataCommitment; disclosedAt

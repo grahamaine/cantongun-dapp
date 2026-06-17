@@ -1,0 +1,104 @@
+-- | Confidential lending / private credit / invoice financing.
+--
+-- A borrower cannot publicly reveal they need a loan, nor publish their financial
+-- health. Here the borrower's sensitive data (customer lists, financials, invoices)
+-- NEVER touches the ledger. Instead a trusted Verifier ZK-attests the facts lenders
+-- care about — invoices valid, revenue ≥ threshold, zero bankruptcies — and only the
+-- *proof* and a privacy-preserving credit score go on-ledger.
+module CantonGun.Credit where
+
+import CantonGun.Identity
+
+-- | A zero-knowledge style attestation over the borrower's off-ledger assets. The
+-- Verifier (a trusted, KYC'd entity) signs facts derived from private data; the data
+-- itself is referenced only by `evidenceCommitment` (a hash / ZK proof reference).
+template AssetAttestation
+  with
+    verifier           : Party
+    borrower           : Party
+    assetClass         : Text     -- ^ e.g. "Trade receivables / invoices"
+    revenueAboveThresh : Bool     -- ^ proven: revenue >= threshold
+    invoicesValid      : Bool     -- ^ proven: invoices from approved buyers
+    zeroBankruptcies   : Bool     -- ^ proven: clean record
+    creditScore        : Int      -- ^ privacy-preserving score 0..1000
+    evidenceCommitment : Text     -- ^ hash / ZK proof; raw data stays off-ledger
+    issuedAt           : Time
+  where
+    signatory verifier
+    observer borrower
+    ensure creditScore >= 0 && creditScore <= 1000 && evidenceCommitment /= ""
+
+    -- | Does the attestation satisfy CantonGun's compliance-by-design gate?
+    nonconsuming choice MeetsPolicy : Bool
+      with minScore : Int
+      controller verifier
+      do pure (revenueAboveThresh && invoicesValid && zeroBankruptcies
+               && creditScore >= minScore)
+
+-- | A confidential funding request. The borrower is an observer only to lenders the
+-- Guard chooses to syndicate to; lenders see asset class + score, NOT the identity.
+template LoanRequest
+  with
+    borrower    : Party
+    guard       : Party
+    attestation : ContractId AssetAttestation
+    assetClass  : Text
+    creditScore : Int
+    principal   : Decimal
+    rateBps     : Int        -- ^ interest in basis points
+    tenorDays   : Int
+  where
+    signatory borrower
+    observer guard
+    ensure principal > 0.0 && rateBps >= 0 && tenorDays > 0
+
+    -- | A KYC'd lender funds the request. Atomically issues a private loan.
+    choice Fund : ContractId Loan
+      with
+        lenderCred : KycCredential
+        fundedAt   : Time
+      controller lenderCred.holder
+      do
+        assertMsg "funder not KYC'd as Lender" (hasRole Lender lenderCred)
+        create Loan with
+          borrower; guard
+          lender = lenderCred.holder
+          assetClass; principal; rateBps; tenorDays
+          outstanding = principal
+          fundedAt
+
+    choice Withdraw : ()
+      controller borrower
+      do pure ()
+
+-- | A private, serviced loan. Visible only to borrower, lender and guard. Interest
+-- payments and repayment are tracked confidentially.
+template Loan
+  with
+    borrower    : Party
+    lender      : Party
+    guard       : Party
+    assetClass  : Text
+    principal   : Decimal
+    rateBps     : Int
+    tenorDays   : Int
+    outstanding : Decimal
+    fundedAt    : Time
+  where
+    signatory borrower, lender
+    observer guard
+    ensure outstanding >= 0.0
+
+    -- | Confidential repayment (principal and/or interest).
+    choice Repay : ContractId Loan
+      with amount : Decimal
+      controller borrower
+      do
+        assertMsg "amount must be positive" (amount > 0.0)
+        assertMsg "overpayment" (amount <= outstanding)
+        create this with outstanding = outstanding - amount
+
+    -- | Mark a fully-repaid loan as closed.
+    choice Close : ()
+      controller lender
+      do assertMsg "balance outstanding" (outstanding == 0.0)

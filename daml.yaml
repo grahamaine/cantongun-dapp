@@ -1,0 +1,11 @@
+sdk-version: 2.8.0
+name: cantongun
+source: daml
+version: 0.1.0
+dependencies:
+  - daml-prim
+  - daml-stdlib
+  - daml-script
+sandbox-options:
+  - --wall-clock-time
+start-navigator: false

@@ -1,0 +1,149 @@
+-- | Confidential OTC / block trading.
+--
+-- An institution sells a large block without crashing the market. There is NO public
+-- order book to front-run: an order is a private contract visible only to its owner
+-- and the CantonGun Guard (the matching/compliance authority). Matching is brokered
+-- by the Guard; the atomic asset⇄cash swap settles confidentially between the two
+-- counterparties only.
+module CantonGun.OTC where
+
+import CantonGun.Identity
+import CantonGun.Audit
+
+data Side = Buy | Sell deriving (Eq, Show)
+
+-- | Terms of a confidential OTC order. Price and identity are the sensitive fields —
+-- here they live in a contract shared ONLY with the Guard, never broadcast.
+data OrderTerms = OrderTerms
+  with
+    asset    : Text     -- ^ instrument, e.g. "CantonGun 5Y Bond"
+    quantity : Int
+    side     : Side
+    limitPrice : Decimal -- ^ confidential limit
+  deriving (Eq, Show)
+
+-- | A private OTC order. Signed by the trader, observed only by the Guard so the
+-- Guard can run confidential matching. No competitor ever sees it exists.
+template PrivateOrder
+  with
+    trader : Party
+    guard  : Party
+    terms  : OrderTerms
+    submittedAt : Time
+  where
+    signatory trader
+    observer guard
+    ensure terms.quantity > 0 && terms.limitPrice > 0.0
+
+    -- | Trader can pull the order before it is matched.
+    choice Cancel : ()
+      controller trader
+      do pure ()
+
+    -- | The Guard proposes a match against a counter-order. Crossing logic is checked
+    -- here (confidential matching), and a settlement proposal is created that only the
+    -- two counterparties (and Guard) can see.
+    choice ProposeMatch : ContractId SettlementProposal
+      with
+        counterOrderCid : ContractId PrivateOrder
+        counterTrader   : Party
+        counterTerms    : OrderTerms
+        clearingPrice   : Decimal
+      controller guard
+      do
+        assertMsg "asset mismatch" (terms.asset == counterTerms.asset)
+        assertMsg "same side" (terms.side /= counterTerms.side)
+        assertMsg "quantity mismatch" (terms.quantity == counterTerms.quantity)
+        -- price crossing: seller's limit <= clearing <= buyer's limit
+        let (sellLimit, buyLimit) = case terms.side of
+              Sell -> (terms.limitPrice, counterTerms.limitPrice)
+              Buy  -> (counterTerms.limitPrice, terms.limitPrice)
+        assertMsg "does not cross" (sellLimit <= clearingPrice && clearingPrice <= buyLimit)
+        let (buyer, seller) = case terms.side of
+              Buy  -> (trader, counterTrader)
+              Sell -> (counterTrader, trader)
+        create SettlementProposal with
+          guard; buyer; seller
+          asset = terms.asset
+          quantity = terms.quantity
+          clearingPrice
+          buyerApproved = False
+          sellerApproved = False
+
+-- | A confidential settlement awaiting both counterparties' approval. Observed by
+-- buyer, seller and guard only. Approval by both triggers the atomic swap.
+template SettlementProposal
+  with
+    guard          : Party
+    buyer          : Party
+    seller         : Party
+    asset          : Text
+    quantity       : Int
+    clearingPrice  : Decimal
+    buyerApproved  : Bool
+    sellerApproved : Bool
+  where
+    signatory guard
+    observer buyer, seller
+
+    choice Approve : ContractId SettlementProposal
+      with approver : Party
+      controller approver
+      do
+        assertMsg "not a counterparty" (approver == buyer || approver == seller)
+        create this with
+          buyerApproved = buyerApproved || approver == buyer
+          sellerApproved = sellerApproved || approver == seller
+
+    -- | Atomic confidential settlement once both sides approved. Produces a private
+    -- TradeReceipt for each side plus a guard-held record for the audit trail.
+    choice Settle : ContractId TradeReceipt
+      controller guard
+      do
+        assertMsg "both parties must approve"
+          (buyerApproved && sellerApproved)
+        create TradeReceipt with
+          guard; buyer; seller; asset; quantity
+          clearingPrice
+          notional = intToDecimal quantity * clearingPrice
+
+-- | The private, atomic record of a settled block trade. Visible only to the two
+-- counterparties and the Guard. Can be selectively disclosed to a regulator via Audit.
+template TradeReceipt
+  with
+    guard         : Party
+    buyer         : Party
+    seller        : Party
+    asset         : Text
+    quantity      : Int
+    clearingPrice : Decimal
+    notional      : Decimal
+  where
+    signatory guard
+    observer buyer, seller
+
+    -- | Selectively disclose this trade to a regulator without revealing it publicly.
+    nonconsuming choice DiscloseToRegulator : ContractId AuditRecord
+      with
+        discloser      : Party
+        auditor        : Party
+        dataCommitment : Text
+        disclosedAt    : Time
+      controller discloser
+      do
+        assertMsg "only a counterparty may disclose"
+          (discloser == buyer || discloser == seller)
+        create AuditRecord with
+          discloser; auditor
+          subject = "OTC trade"
+          reference = asset
+          dataCommitment; disclosedAt
+
+-- | Compliance guard: only KYC'd traders may submit orders.
+submitOrder : KycCredential -> Party -> OrderTerms -> Time -> Update (ContractId PrivateOrder)
+submitOrder cred guard terms now = do
+  assertMsg "trader not KYC'd as Trader" (hasRole Trader cred)
+  create PrivateOrder with
+    trader = cred.holder
+    guard; terms
+    submittedAt = now

@@ -1,0 +1,68 @@
+-- | Confidential KYC/AML identity credentials for CantonGun participants.
+--
+-- Institutional finance is not anonymous — it is *confidential*. Every participant
+-- must clear KYC/AML before they can trade or lend. The credential proves a party is
+-- onboarded WITHOUT exposing the underlying personal/corporate data on the shared
+-- ledger: the sensitive payload is represented as an off-ledger commitment (a hash /
+-- ZK attestation reference), never the raw data.
+module CantonGun.Identity where
+
+-- | What an onboarded party is allowed to do on CantonGun.
+data Role
+  = Trader      -- ^ may submit/accept confidential OTC orders
+  | Borrower    -- ^ may request private credit
+  | Lender      -- ^ may fund private credit
+  | Verifier    -- ^ trusted entity that ZK-attests off-ledger assets
+  deriving (Eq, Show)
+
+-- | A confidential KYC credential issued by the CantonGun Guard (the compliance
+-- authority). Only the Guard (signatory) and the holder (observer) can see it, so a
+-- credential never leaks a participant's identity to the wider network.
+template KycCredential
+  with
+    guard       : Party    -- ^ compliance authority / issuer
+    holder      : Party    -- ^ the onboarded institution
+    legalName   : Text     -- ^ display name shared only with guard + holder
+    role        : Role
+    -- | Off-ledger commitment to the full KYC dossier (hash or ZK proof reference).
+    -- The raw documents NEVER touch the ledger.
+    kycCommitment : Text
+    expiry      : Time
+  where
+    signatory guard
+    observer holder
+    ensure legalName /= "" && kycCommitment /= ""
+
+    -- | Revoke a credential (e.g. expired or sanctioned).
+    choice Revoke : ()
+      controller guard
+      do pure ()
+
+    -- | The holder proves to a third party that they hold a valid credential,
+    -- selectively disclosing only role + validity, not the dossier.
+    nonconsuming choice PresentCredential : CredentialProof
+      with
+        toParty : Party
+        asOf    : Time
+      controller holder
+      do
+        assertMsg "credential expired" (asOf <= expiry)
+        pure CredentialProof with
+          guard; holder; role
+          presentedTo = toParty
+          validAt = asOf
+
+-- | A minimal, shareable attestation derived from a credential. Reveals role +
+-- validity to a chosen counterparty without exposing legalName or the dossier.
+data CredentialProof = CredentialProof
+  with
+    guard       : Party
+    holder      : Party
+    role        : Role
+    presentedTo : Party
+    validAt     : Time
+  deriving (Eq, Show)
+
+-- | Helper: does this credential authorise a given role?
+hasRole : Role -> KycCredential -> Bool
+hasRole r c = c.role == r
