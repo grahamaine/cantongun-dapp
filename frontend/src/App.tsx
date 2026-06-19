@@ -17,7 +17,7 @@ export function App() {
     <div className="app">
       <header className="topbar">
         <div className="brand">
-          <Logo size={42} />
+          <Logo size={56} />
           <div>
             <h1>CantonGun</h1>
             <p className="tagline">Confidential capital markets · Canton L1</p>
