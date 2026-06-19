@@ -3,6 +3,12 @@
 > **Confidential capital markets infrastructure on the Canton Network (L1).**
 > Privacy isn't a feature — it's the professional requirement.
 
+**🔗 Live demo:** https://cantongun-dapp.vercel.app · **Source:** https://github.com/grahamaine/cantongun-dapp
+
+> The live site runs the in-browser demo ledger (no Canton stack required). Switch the
+> **Acting as** party to watch the same ledger reveal a completely different view — that
+> is Canton sub-transaction privacy, simulated client-side.
+
 CantonGun is a DeFi DApp for **institutional, confidential finance** built on
 [Canton](https://www.canton.network/), the privacy-enabled L1 whose sub-transaction
 privacy model lets counterparties transact on a shared ledger while revealing data
