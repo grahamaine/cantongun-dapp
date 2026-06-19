@@ -2,8 +2,10 @@ import { useState } from "react";
 import { Logo } from "./components/Logo";
 import { OtcDesk } from "./components/OtcDesk";
 import { CreditDesk } from "./components/CreditDesk";
+import { ComplianceDesk } from "./components/ComplianceDesk";
+import { demo } from "./demoLedger";
 
-type Tab = "otc" | "credit";
+type Tab = "otc" | "credit" | "compliance";
 
 const PARTIES = ["BankA", "BankB", "Logistics", "Fund", "Verifier", "Guard", "Regulator"];
 
@@ -42,15 +44,25 @@ export function App() {
         <button className={tab === "otc" ? "active" : ""} onClick={() => setTab("otc")}>
           Confidential OTC Desk
         </button>
-        <button
-          className={tab === "credit" ? "active" : ""}
-          onClick={() => setTab("credit")}
-        >
+        <button className={tab === "credit" ? "active" : ""} onClick={() => setTab("credit")}>
           Private Credit Desk
+        </button>
+        <button
+          className={tab === "compliance" ? "active" : ""}
+          onClick={() => setTab("compliance")}
+        >
+          Compliance &amp; Disclosure
+        </button>
+        <button className="reset" onClick={() => demo.resetDemo()} title="Reset demo ledger">
+          ↺ Reset
         </button>
       </nav>
 
-      <main>{tab === "otc" ? <OtcDesk party={party} /> : <CreditDesk party={party} />}</main>
+      <main>
+        {tab === "otc" && <OtcDesk party={party} />}
+        {tab === "credit" && <CreditDesk party={party} />}
+        {tab === "compliance" && <ComplianceDesk party={party} />}
+      </main>
 
       <footer>
         <span>We enforce NDAs mathematically.</span>

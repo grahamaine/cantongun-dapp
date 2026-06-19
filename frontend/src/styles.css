@@ -48,6 +48,7 @@ body {
   padding: 10px 18px; border-radius: 10px; cursor: pointer; font-size: 14px;
 }
 .tabs button.active { color: var(--text); border-color: var(--accent); background: var(--panel-2); }
+.tabs button.reset { margin-left: auto; color: var(--muted); }
 
 .desk { display: grid; grid-template-columns: 1fr 1fr; gap: 18px; }
 @media (max-width: 860px) { .desk { grid-template-columns: 1fr; } }

@@ -88,6 +88,32 @@ daml test
 cd frontend && npm install && npm run dev
 ```
 
+### Run the UI standalone (no Canton stack required)
+
+The frontend ships with an **in-browser demo ledger** that faithfully simulates
+Canton's sub-transaction privacy: every contract carries its stakeholder set, and a
+party's view returns *only* the contracts it is entitled to see — the same boundary the
+real Daml JSON API enforces. So judges can drive the full product end-to-end without
+running a participant:
+
+```bash
+cd frontend && npm install && npm run dev   # open http://localhost:3000
+```
+
+Switch the **Acting as** party (top right) to watch the *same* ledger reveal a
+completely different view — that is privacy by construction, not access control.
+
+**Demo script (≈90s):**
+1. *BankA* submits a private SELL; *BankB* submits a private BUY — neither sees the other.
+2. *Guard* opens the matching console (only it sees both), proposes a match at a clearing price.
+3. *BankA* and *BankB* each approve; *Guard* settles atomically → private trade receipts.
+4. Either bank clicks **Disclose to Regulator**; switch to *Regulator* → the disclosure inbox shows it (and *Fund* still sees nothing).
+5. Credit desk: *Verifier* issues a ZK attestation, *Logistics* requests funding, *Guard* syndicates to *Fund*, *Fund* funds, *Logistics* repays, *Fund* closes.
+
+The live JSON-API client lives in [`frontend/src/ledger.ts`](frontend/src/ledger.ts)
+for deployment against a real participant; the demo engine is
+[`frontend/src/demoLedger.ts`](frontend/src/demoLedger.ts).
+
 See [docs/ARCHITECTURE.md](docs/ARCHITECTURE.md) for the privacy model, and
 [docs/PITCH.md](docs/PITCH.md) for the hackathon narrative and judges' focus points.
 
