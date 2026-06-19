@@ -50,11 +50,12 @@ issueKyc guard holder name role =
     kycCommitment = "sha256:" <> name
     expiry = later
 
--- | WORKFLOW 1 — Confidential OTC block trade.
+-- | WORKFLOW 1 — Confidential OTC block trade. Standalone (own ledger).
 testOtc : Script ()
-testOtc = do
-  Parties{..} <- setupParties
+testOtc = setupParties >>= otcFlow
 
+otcFlow : Parties -> Script ()
+otcFlow Parties{..} = do
   _credA <- issueKyc guard bankA "Bank A" Trader
   _credB <- issueKyc guard bankB "Bank B" Trader
 
@@ -98,11 +99,12 @@ testOtc = do
   assertMsg "Regulator should see one disclosure" (length regView == 1)
   pure ()
 
--- | WORKFLOW 2 — Private invoice financing.
+-- | WORKFLOW 2 — Private invoice financing. Standalone (own ledger).
 testCredit : Script ()
-testCredit = do
-  Parties{..} <- setupParties
+testCredit = setupParties >>= creditFlow
 
+creditFlow : Parties -> Script ()
+creditFlow Parties{..} = do
   _verifierCred <- issueKyc guard verifier "Trusted Verifier" Verifier
   _borrowerCred <- issueKyc guard logistics "Canton Logistics" Borrower
   lenderCred    <- issueKyc guard fund "Canton Capital Fund" Lender
@@ -127,9 +129,13 @@ testCredit = do
     assetClass = "Trade receivables / invoices"
     creditScore = 780
     principal = 1000000.0; rateBps = 850; tenorDays = 90
+    lenders = []
+
+  -- Guard confidentially syndicates the request to the Fund (adds it as an observer).
+  reqCid2 <- submit guard $ exerciseCmd reqCid Syndicate with lender = fund
 
   -- Fund funds it against asset class + score (not the borrower's name).
-  loanCid <- submit fund $ exerciseCmd reqCid Fund with
+  loanCid <- submit fund $ exerciseCmd reqCid2 Fund with
     lenderCred = lenderCredData; fundedAt = now
 
   -- Confidential servicing: borrower repays in two tranches and lender closes it.
@@ -142,8 +148,10 @@ testCredit = do
   assertMsg "Bank A must NOT see the private loan" (null bankAView)
   pure ()
 
--- | Run both workflows.
+-- | Run both workflows on ONE shared ledger (parties allocated once), proving the
+-- privacy boundaries hold even when OTC and credit activity coexist on the network.
 main : Script ()
 main = do
-  testOtc
-  testCredit
+  parties <- setupParties
+  otcFlow parties
+  creditFlow parties

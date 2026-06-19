@@ -47,10 +47,21 @@ template LoanRequest
     principal   : Decimal
     rateBps     : Int        -- ^ interest in basis points
     tenorDays   : Int
+    lenders     : [Party]    -- ^ lenders the Guard has syndicated to (observers)
   where
     signatory borrower
-    observer guard
+    observer guard, lenders
     ensure principal > 0.0 && rateBps >= 0 && tenorDays > 0
+
+    -- | The Guard confidentially syndicates the request to a chosen lender, adding
+    -- them as an observer so they can evaluate and fund it. The borrower's identity is
+    -- shared only with lenders the Guard selects — never the wider market.
+    choice Syndicate : ContractId LoanRequest
+      with lender : Party
+      controller guard
+      do
+        assertMsg "already syndicated to this lender" (lender `notElem` lenders)
+        create this with lenders = lender :: lenders
 
     -- | A KYC'd lender funds the request. Atomically issues a private loan.
     choice Fund : ContractId Loan
