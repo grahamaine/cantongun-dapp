@@ -21,3 +21,5 @@ Thumbs.db
 # Canton runtime
 canton-logs/
 log/
+
+.vercel
