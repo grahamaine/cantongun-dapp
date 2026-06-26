@@ -69,7 +69,7 @@ export function App() {
   if (splash) return <SplashScreen onDone={hideSplash} />;
 
   return (
-    <div className={`layout ${sidebarOpen ? "sidebar-open" : "sidebar-closed"}`}>
+    <div className={`layout ${sidebarOpen ? "sidebar-open" : "sidebar-closed"}`} data-tab={tab}>
       {/* ── Sidebar ── */}
       <aside className="sidebar">
         <div className="sidebar-brand">
