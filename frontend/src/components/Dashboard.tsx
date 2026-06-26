@@ -100,10 +100,11 @@ function buildActivity(party: string): ActivityItem[] {
 }
 
 export function Dashboard({ party }: { party: string }) {
-  const [tick, setTick] = useState(0);
+  const [, setTick] = useState(0);
 
   useEffect(() => {
-    return subscribe(() => setTick((t) => t + 1));
+    const unsub = subscribe(() => setTick((t) => t + 1));
+    return () => { unsub(); };
   }, []);
 
   const all = visibleToParty(party);

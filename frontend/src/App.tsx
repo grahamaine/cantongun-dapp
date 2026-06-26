@@ -45,7 +45,7 @@ export function App() {
   // Track ledger events as notifications
   useEffect(() => {
     let prev = visibleToParty(party).length;
-    return subscribe(() => {
+    const unsub = subscribe(() => {
       const next = visibleToParty(party).length;
       if (next > prev) {
         setNotifications((ns) => [
@@ -60,6 +60,7 @@ export function App() {
       }
       prev = next;
     });
+    return () => { unsub(); };
   }, [party]);
 
   // Reset unread when panel opened
