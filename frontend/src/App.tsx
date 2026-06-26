@@ -20,9 +20,9 @@ const NAV: { id: Tab; icon: string; label: string }[] = [
 
 const PAGE_TITLE: Record<Tab, string> = {
   dashboard:  "Dashboard",
-  otc:        "Confidential OTC Desk",
-  credit:     "Private Credit Desk",
-  compliance: "Compliance & Disclosure",
+  otc:        "OTC Desk",
+  credit:     "Credit Desk",
+  compliance: "Compliance",
 };
 
 interface Notification {
@@ -32,15 +32,40 @@ interface Notification {
 }
 
 export function App() {
-  const [splash, setSplash]           = useState(true);
-  const [tab, setTab]                 = useState<Tab>("dashboard");
-  const [party, setParty]             = useState<string>("BankA");
-  const [sidebarOpen, setSidebarOpen] = useState(true);
-  const [notifOpen, setNotifOpen]     = useState(false);
+  const [splash, setSplash]               = useState(true);
+  const [tab, setTab]                     = useState<Tab>("dashboard");
+  const [party, setParty]                 = useState<string>("BankA");
+  const [sidebarOpen, setSidebarOpen]     = useState(true);
+  const [mobileNavOpen, setMobileNavOpen] = useState(false);
+  const [notifOpen, setNotifOpen]         = useState(false);
   const [notifications, setNotifications] = useState<Notification[]>([]);
-  const [unread, setUnread]           = useState(0);
+  const [unread, setUnread]               = useState(0);
 
   const hideSplash = useCallback(() => setSplash(false), []);
+
+  // Collapse sidebar by default on small screens
+  useEffect(() => {
+    const mq = window.matchMedia("(max-width: 768px)");
+    const handler = (e: MediaQueryListEvent) => {
+      if (e.matches) setSidebarOpen(false);
+    };
+    if (mq.matches) setSidebarOpen(false);
+    mq.addEventListener("change", handler);
+    return () => mq.removeEventListener("change", handler);
+  }, []);
+
+  // Close mobile nav + notif when clicking outside
+  useEffect(() => {
+    const close = (e: MouseEvent) => {
+      const t = e.target as Element;
+      if (!t.closest(".sidebar") && !t.closest(".hamburger"))
+        setMobileNavOpen(false);
+      if (!t.closest(".notif-wrap"))
+        setNotifOpen(false);
+    };
+    document.addEventListener("mousedown", close);
+    return () => document.removeEventListener("mousedown", close);
+  }, []);
 
   // Track ledger events as notifications
   useEffect(() => {
@@ -49,11 +74,7 @@ export function App() {
       const next = visibleToParty(party).length;
       if (next > prev) {
         setNotifications((ns) => [
-          {
-            id: `n-${Date.now()}`,
-            text: `New contract visible to ${party}`,
-            time: Date.now(),
-          },
+          { id: `n-${Date.now()}`, text: `New contract visible to ${party}`, time: Date.now() },
           ...ns.slice(0, 19),
         ]);
         setUnread((u) => u + 1);
@@ -63,17 +84,29 @@ export function App() {
     return () => { unsub(); };
   }, [party]);
 
-  // Reset unread when panel opened
   const openNotif = () => { setNotifOpen((o) => !o); setUnread(0); };
+
+  const navigate = (id: Tab) => {
+    setTab(id);
+    setMobileNavOpen(false); // close drawer on mobile after tap
+  };
 
   if (splash) return <SplashScreen onDone={hideSplash} />;
 
   return (
-    <div className={`layout ${sidebarOpen ? "sidebar-open" : "sidebar-closed"}`} data-tab={tab}>
+    <div
+      className={`layout ${sidebarOpen ? "sidebar-open" : "sidebar-closed"} ${mobileNavOpen ? "mobile-nav-open" : ""}`}
+      data-tab={tab}
+    >
+      {/* Mobile overlay backdrop */}
+      {mobileNavOpen && (
+        <div className="mobile-backdrop" onClick={() => setMobileNavOpen(false)} />
+      )}
+
       {/* ── Sidebar ── */}
       <aside className="sidebar">
         <div className="sidebar-brand">
-          <Logo size={44} />
+          <Logo size={40} />
           {sidebarOpen && (
             <div>
               <span className="sidebar-title">CantonGun</span>
@@ -87,7 +120,7 @@ export function App() {
             <button
               key={id}
               className={`nav-item ${tab === id ? "active" : ""}`}
-              onClick={() => setTab(id)}
+              onClick={() => navigate(id)}
               title={!sidebarOpen ? label : undefined}
             >
               <span className="nav-icon">{icon}</span>
@@ -110,7 +143,7 @@ export function App() {
         <button
           className="sidebar-toggle"
           onClick={() => setSidebarOpen((o) => !o)}
-          title={sidebarOpen ? "Collapse sidebar" : "Expand sidebar"}
+          title={sidebarOpen ? "Collapse" : "Expand"}
         >
           {sidebarOpen ? "◀" : "▶"}
         </button>
@@ -119,6 +152,15 @@ export function App() {
       {/* ── Main area ── */}
       <div className="main-area">
         <header className="topbar">
+          {/* Hamburger — mobile only */}
+          <button
+            className="hamburger"
+            onClick={() => setMobileNavOpen((o) => !o)}
+            aria-label="Toggle menu"
+          >
+            <span /><span /><span />
+          </button>
+
           <div className="topbar-left">
             <h2 className="page-title">
               {NAV.find((n) => n.id === tab)?.icon}{" "}
@@ -127,9 +169,8 @@ export function App() {
           </div>
 
           <div className="topbar-right">
-            {/* Notification bell */}
             <div className="notif-wrap">
-              <button className="notif-btn" onClick={openNotif} title="Notifications">
+              <button className="notif-btn" onClick={openNotif} aria-label="Notifications">
                 🔔
                 {unread > 0 && <span className="notif-badge">{unread}</span>}
               </button>
@@ -163,8 +204,7 @@ export function App() {
         </header>
 
         <div className="privacy-banner">
-          🔒 You only see contracts <strong>{party}</strong> is entitled to. Privacy is
-          enforced by the ledger — competitors see nothing.
+          🔒 <strong>{party}</strong> — you only see contracts this party is entitled to.
         </div>
 
         <main>
@@ -179,6 +219,20 @@ export function App() {
           <span>zk-attested · selectively disclosed · atomically settled</span>
         </footer>
       </div>
+
+      {/* ── Mobile bottom nav bar ── */}
+      <nav className="mobile-bottom-nav">
+        {NAV.map(({ id, icon, label }) => (
+          <button
+            key={id}
+            className={`mobile-nav-btn ${tab === id ? "active" : ""}`}
+            onClick={() => navigate(id)}
+          >
+            <span className="mobile-nav-icon">{icon}</span>
+            <span className="mobile-nav-label">{label}</span>
+          </button>
+        ))}
+      </nav>
     </div>
   );
 }
