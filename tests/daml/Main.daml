@@ -28,13 +28,13 @@ data Parties = Parties with
 
 setupParties : Script Parties
 setupParties = do
-  guard     <- allocatePartyWithHint "Guard"     (PartyIdHint "Guard")
-  regulator <- allocatePartyWithHint "Regulator" (PartyIdHint "Regulator")
-  bankA     <- allocatePartyWithHint "BankA"     (PartyIdHint "BankA")
-  bankB     <- allocatePartyWithHint "BankB"     (PartyIdHint "BankB")
-  logistics <- allocatePartyWithHint "Logistics" (PartyIdHint "Logistics")
-  fund      <- allocatePartyWithHint "Fund"      (PartyIdHint "Fund")
-  verifier  <- allocatePartyWithHint "Verifier"  (PartyIdHint "Verifier")
+  guard     <- allocatePartyByHint (PartyIdHint "Guard")
+  regulator <- allocatePartyByHint (PartyIdHint "Regulator")
+  bankA     <- allocatePartyByHint (PartyIdHint "BankA")
+  bankB     <- allocatePartyByHint (PartyIdHint "BankB")
+  logistics <- allocatePartyByHint (PartyIdHint "Logistics")
+  fund      <- allocatePartyByHint (PartyIdHint "Fund")
+  verifier  <- allocatePartyByHint (PartyIdHint "Verifier")
   pure Parties with ..
 
 now : Time

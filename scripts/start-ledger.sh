@@ -6,9 +6,7 @@ cd "$(dirname "$0")/.."
 echo "==> Building Daml model"
 daml build
 
-echo "==> Starting sandbox + JSON API (Ctrl-C to stop)"
-# `daml start` runs the sandbox ledger, uploads the DAR, and exposes the JSON API
-# the frontend talks to (default http://localhost:7575).
-daml start \
-  --json-api-option --allow-insecure-tokens \
-  --open-browser no
+echo "==> Starting Canton sandbox + JSON Ledger API (Ctrl-C to stop)"
+# `daml start` runs a single-participant Canton sandbox, uploads the DAR, and
+# exposes the JSON Ledger API the frontend talks to (http://localhost:7575).
+daml start --json-api-port 7575

@@ -64,28 +64,30 @@ Both rely on:
 ```
 CantonGun/
 ├── daml/                    # Canton L1 smart contracts (Daml)
-│   ├── Main.daml            # End-to-end demo script
 │   └── CantonGun/
 │       ├── Identity.daml    # KYC/AML confidential credentials
 │       ├── OTC.daml         # Confidential OTC / block trading
 │       ├── Credit.daml      # Private invoice financing
 │       └── Audit.daml       # Selective disclosure / audit trail
+├── tests/                   # End-to-end demo script (separate package so the
+│   └── daml/Main.daml       #   deployable DAR stays free of daml-script)
 ├── frontend/                # React + TypeScript institutional UI
 ├── scripts/                 # Sandbox / JSON-API bootstrap
 ├── docs/                    # Architecture + pitch + ZK design
-├── daml.yaml
+├── daml.yaml                # cantongun package (deployable DAR)
+├── multi-package.yaml
 └── canton.conf              # Canton participant/domain topology
 ```
 
 ## Quick start
 
-Prerequisites: [Daml SDK](https://docs.daml.com/getting-started/installation.html) `2.8+`,
-Node `18+`.
+Prerequisites: [Daml SDK](https://docs.digitalasset.com/) `3.4+` (Canton 3.x / devnet
+compatible), Node `18+`.
 
 ```bash
-# 1. Build the Daml model and run the end-to-end demo
-daml build
-daml test
+# 1. Build the Daml model (deployable DAR + tests) and run the end-to-end demo
+daml build --all
+(cd tests && daml test)
 
 # 2. Start a local Canton sandbox + JSON API (privacy-aware ledger)
 ./scripts/start-ledger.sh        # or: daml start
