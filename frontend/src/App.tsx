@@ -4,10 +4,12 @@ import { OtcDesk } from "./components/OtcDesk";
 import { CreditDesk } from "./components/CreditDesk";
 import { ComplianceDesk } from "./components/ComplianceDesk";
 import { Dashboard } from "./components/Dashboard";
+import { HowItWorks } from "./components/HowItWorks";
 import { SplashScreen } from "./components/SplashScreen";
+import { DemoAutopilot } from "./components/DemoAutopilot";
 import { demo, subscribe, visibleToParty } from "./demoLedger";
 
-type Tab = "dashboard" | "otc" | "credit" | "compliance";
+type Tab = "dashboard" | "otc" | "credit" | "compliance" | "how";
 
 const PARTIES = ["BankA", "BankB", "Logistics", "Fund", "Verifier", "Guard", "Regulator"];
 
@@ -16,6 +18,7 @@ const NAV: { id: Tab; icon: string; label: string }[] = [
   { id: "otc",        icon: "⚡", label: "OTC Desk" },
   { id: "credit",     icon: "🏦", label: "Credit Desk" },
   { id: "compliance", icon: "🔏", label: "Compliance" },
+  { id: "how",        icon: "📖", label: "How It Works" },
 ];
 
 const PAGE_TITLE: Record<Tab, string> = {
@@ -23,6 +26,7 @@ const PAGE_TITLE: Record<Tab, string> = {
   otc:        "OTC Desk",
   credit:     "Credit Desk",
   compliance: "Compliance",
+  how:        "How It Works",
 };
 
 interface Notification {
@@ -42,6 +46,10 @@ export function App() {
   const [unread, setUnread]               = useState(0);
 
   const hideSplash = useCallback(() => setSplash(false), []);
+
+  // Seed the demo ledger immediately — the dashboard reads it directly and must
+  // not depend on a desk tab having been visited first.
+  useEffect(() => { demo.ensureSeeded(); }, []);
 
   // Collapse sidebar by default on small screens
   useEffect(() => {
@@ -169,6 +177,12 @@ export function App() {
           </div>
 
           <div className="topbar-right">
+            <DemoAutopilot
+              onStep={(p, t) => {
+                setParty(p);
+                navigate(t as Tab);
+              }}
+            />
             <div className="notif-wrap">
               <button className="notif-btn" onClick={openNotif} aria-label="Notifications">
                 🔔
@@ -208,10 +222,11 @@ export function App() {
         </div>
 
         <main>
-          {tab === "dashboard"  && <Dashboard party={party} />}
+          {tab === "dashboard"  && <Dashboard party={party} onNavigate={(t) => navigate(t as Tab)} />}
           {tab === "otc"        && <OtcDesk party={party} />}
           {tab === "credit"     && <CreditDesk party={party} />}
           {tab === "compliance" && <ComplianceDesk party={party} />}
+          {tab === "how"        && <HowItWorks onNavigate={(t) => navigate(t as Tab)} />}
         </main>
 
         <footer>

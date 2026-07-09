@@ -53,7 +53,43 @@ const cid = (t: string) => `${t}#${(++seq).toString().padStart(4, "0")}`;
 let store: DemoContract[] = [];
 type Listener = () => void;
 const listeners = new Set<Listener>();
-const emit = () => listeners.forEach((l) => l());
+const emit = () => {
+  listeners.forEach((l) => l());
+  persist();
+};
+
+// ---- persistence -------------------------------------------------------------
+// The ledger survives a page refresh (an accidental F5 mid-demo no longer wipes
+// the state). Reset Demo still clears everything back to the seed.
+
+const LS_KEY = "cantongun-demo-ledger-v1";
+
+function persist() {
+  try {
+    localStorage.setItem(
+      LS_KEY,
+      JSON.stringify({ seq, store, creds: [...credsByParty.entries()] })
+    );
+  } catch {
+    /* storage unavailable (private mode / quota) — demo still works in-memory */
+  }
+}
+
+function restore(): boolean {
+  try {
+    const raw = localStorage.getItem(LS_KEY);
+    if (!raw) return false;
+    const data = JSON.parse(raw);
+    if (!Array.isArray(data.store) || data.store.length === 0) return false;
+    store = data.store;
+    seq = typeof data.seq === "number" ? data.seq : store.length;
+    credsByParty.clear();
+    for (const [k, v] of data.creds ?? []) credsByParty.set(k, v);
+    return true;
+  } catch {
+    return false;
+  }
+}
 export const subscribe = (l: Listener) => {
   listeners.add(l);
   return () => listeners.delete(l);
@@ -304,6 +340,10 @@ export function acknowledge(recordCid: string, auditor: string) {
 /** Idempotent demo seed: onboards the cast so the desks have something to act on. */
 export function ensureSeeded() {
   if (store.length > 0) return;
+  if (restore()) {
+    listeners.forEach((l) => l());
+    return;
+  }
   issueKyc("BankA", "Bank A (London desk)", "Trader");
   issueKyc("BankB", "Bank B (NY desk)", "Trader");
   issueKyc("Logistics", "Canton Logistics Ltd", "Borrower");
@@ -316,6 +356,9 @@ export function resetDemo() {
   store = [];
   credsByParty.clear();
   seq = 0;
+  try {
+    localStorage.removeItem(LS_KEY); // otherwise ensureSeeded would restore the old state
+  } catch { /* ignore */ }
   ensureSeeded();
   emit();
 }

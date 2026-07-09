@@ -5,7 +5,7 @@
       "name": "cantongun-frontend",
       "runtimeExecutable": "npm",
       "runtimeArgs": ["run", "dev"],
-      "port": 3000,
+      "port": 5173,
       "cwd": "frontend"
     }
   ]
