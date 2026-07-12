@@ -19,8 +19,8 @@ privacy model lets counterparties transact on a shared ledger while revealing da
 *only* to the parties who are entitled to see it.
 
 The $100T+ institutional capital market cannot operate on transparent public chains:
-banks cannot reveal their positions, counterparties, or strategic deals. Every
-professional transaction begins and ends with an NDA. **CantonGun enforces NDAs
+**pricing, counterparties, and positions must not be public**. Every professional
+transaction begins and ends with an NDA. **CantonGun enforces NDAs
 mathematically** — using Canton's native privacy plus zero-knowledge attestations —
 so professionals can execute sensitive capital flows with precision and provable
 compliance.
@@ -40,6 +40,40 @@ compliance.
 Canton gives us privacy **by construction**: a contract is only ever shared with its
 `signatory` and `observer` parties. We layer ZK attestations on top for facts that must
 be *proven* without being *revealed* (e.g. "revenue ≥ threshold", "zero bankruptcies").
+
+---
+
+## How this maps to the track criteria
+
+| Judges look for | Where CantonGun shows it |
+|---|---|
+| **Clear use of privacy / confidentiality** | Every contract's visibility comes from Daml `signatory`/`observer` declarations (table below). Switch the **Acting as** party in the live demo and the same ledger renders a different view — BankA never sees BankB's order, competitors never see a disclosure meant for the Regulator. |
+| **A real financial use case** | Two of them, end-to-end: **confidential OTC block trading** (order → match → two-sided approval → atomic settlement → private receipts) and **private credit / invoice financing** (ZK attestation → syndicated funding → repayment → close). |
+| **Strong product logic** | A coherent market structure, not infra: the Guard is the only party entitled to see crossing orders, matching is discretionary, settlement is atomic once both sides sign, and disclosure is an explicit signed act by the data owner. |
+| **Institutional / professional relevance** | Pricing, counterparties, and positions are never public — there is no order book and no mempool to front-run. Compliance is selective disclosure to the regulator, invisible to everyone else. That is how block desks and private credit actually operate. |
+
+### Who sees what — demo ↔ Daml, 1:1
+
+The hosted demo's in-browser ledger uses the **same template names and stakeholder
+sets** as the Daml model, so what judges experience in the UI is the visibility the
+contracts enforce on Canton:
+
+| Template | Daml source | Visible to (signatory → observer) | Everyone else sees |
+|---|---|---|---|
+| `PrivateOrder` | [OTC.daml](daml/CantonGun/OTC.daml) | trader → Guard | nothing |
+| `SettlementProposal` | [OTC.daml](daml/CantonGun/OTC.daml) | Guard → buyer, seller | nothing |
+| `TradeReceipt` | [OTC.daml](daml/CantonGun/OTC.daml) | Guard → buyer, seller | nothing |
+| `KycCredential` | [Identity.daml](daml/CantonGun/Identity.daml) | Guard → holder | nothing |
+| `AssetAttestation` | [Credit.daml](daml/CantonGun/Credit.daml) | verifier → borrower | nothing |
+| `LoanRequest` | [Credit.daml](daml/CantonGun/Credit.daml) | borrower → Guard + syndicated lenders only | nothing |
+| `Loan` | [Credit.daml](daml/CantonGun/Credit.daml) | borrower, lender → Guard | nothing |
+| `AuditRecord` | [Audit.daml](daml/CantonGun/Audit.daml) | discloser → auditor | nothing |
+
+**Canton status:** the Daml model builds on SDK 3.4.11 (Canton 3.x / devnet
+compatible) and runs against a local Canton sandbox (`daml start`). The hosted demo
+simulates the same signatory/observer boundary client-side so judges can drive the
+product with zero setup; deployment to a hosted devnet participant is in progress
+(pending DAR-upload access).
 
 ---
 
