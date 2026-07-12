@@ -1,3 +1,7 @@
+<p align="center">
+  <img src="frontend/public/logo.png" alt="CantonGun" width="560" />
+</p>
+
 # CantonGun
 
 > **Confidential capital markets infrastructure on the Canton Network (L1).**
