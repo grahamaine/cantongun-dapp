@@ -163,6 +163,12 @@ for deployment against a real participant; the demo engine is
 See [docs/ARCHITECTURE.md](docs/ARCHITECTURE.md) for the privacy model, and
 [docs/PITCH.md](docs/PITCH.md) for the hackathon narrative and judges' focus points.
 
+## Certifications
+
+<img src="docs/certificates/canton-hackathon-certification-of-participation.png" alt="Build on Canton Hackathon — Certificate of Participation, Graham Byagaba" width="600">
+
+*Build on Canton Hackathon* — Certificate of Participation, Encode Club × Canton (July 2026).
+
 ## License
 
 Apache-2.0 — see [LICENSE](LICENSE).
